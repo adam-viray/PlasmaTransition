@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+calculate and plot local density gradient N, rms fluctuation level E,
+and flow gradient V for a confined, high-temperature plasma.
+Adam Viray
+PHSX 333
+21 February 2021 
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+class PlasmaTransition():    
+    
+    def __init__(self, alpha, nu, mu, S, N0, E0, V0):
+        #parameters and initial values
+        self.alpha = alpha
+        self.nu = nu
+        self.mu = mu
+        self.S = S
+        self.N0 = N0
+        self.E0 = E0
+        self.V0 = V0
+        #integration values
+        self.a = 0
+        self.b = 0.99
+        self.n = 100000
+        self.du = float(self.b-self.a)/float(self.n)
+        #data storage
+        self.u_space = np.linspace(self.a ,self.b, self.n, endpoint=True)
+        self.t_space = []
+        self.N_space = []
+        self.E_space = []
+        self.V_space = []
+        self.r = np.array([self.N0, self.E0, self.V0])
+        self.t_end = 0
+        
+    def f(self,r,u):
+        """
+        the functions arranged for rk4 in u space
+        """
+        N = r[0]
+        E = r[1]
+        V = r[2]
+        dN_du = (-E*N + self.S) / ((1-u)**2)
+        dE_du = (E*N - self.nu*E**2 - E*V**2) / ((1-u)**2)
+        dV_du = (self.alpha*E*V - self.mu*V) / ((1-u)**2)
+        return np.array([dN_du, dE_du, dV_du], float)
+        
+    def rk4(self,f,r,u,du):
+        """
+        perform 4th-order Runge-Kutta under t = u/(1-u)
+        """
+        k1 = du*f(r, du)
+        k2 = du*f(r+.5*k1, u+.5*du)
+        k3 = du*f(r+.5*k2, u+.5*du)
+        k4 = du*f(r+k3, u+du)
+        return (k1 + 2*k2 + 2*k3 + k4)/6
+    
+    def equilibrium(self, A, l, e):
+        """
+        calculate running average of the int l latest values of array A, or 
+        all of them if there are fewer than l. If the difference between
+        the average and the current value is less than a certain threshold e,
+        consider the function in equilibrium
+        """
+        i = -min(l, len(A))
+        A_recent = A[i:]
+        if len(A_recent) > 1 and abs(np.mean(A_recent) - A[-1]) < e:
+            return True
+        return False
+    
+    def all_equilibrium(self, l, e):
+        """
+        calls equilibrium for all three variables, returns true if all
+        three are in defined equilibrium state
+        """
+        if self.equilibrium(self.N_space, l, e) and self.equilibrium(self.E_space, l, e) and self.equilibrium(self.V_space, l, e):
+            return True
+        return False
+    
+    def go(self):
+        """
+        perform rk4 and plot N, E, and V vs t with the domain limited
+        to shortly after equilibrium is reached.
+        output t, E, V, and N to a file.
+        """
+        for u in self.u_space:
+            self.t_space.append(u/(1-u))
+            self.N_space.append(self.r[0])
+            self.E_space.append(self.r[1])
+            self.V_space.append(self.r[2])
+            self.r = np.add(self.r,self.rk4(self.f,self.r,u,self.du))
+            if not self.t_end and self.all_equilibrium(int(self.n/20000), 0.000000001):
+                self.t_end = u/(1-u)
+            
+        if not self.t_end:
+            self.t_end = 30
+        
+        if self.S >= 8 and self.S%1 == 0:
+            l1,l2,l3 = plt.plot(self.t_space, self.N_space, '-k', self.t_space, self.E_space, '-r', self.t_space, self.V_space, '-b')
+            plt.legend((l1,l2,l3),('N','E','V'))
+            plt.title('S = %f' % self.S)
+            plt.xlim(0,int(self.t_end))
+            plt.xlabel("time")
+            plt.show()
+        
+        if self.S%2 == 0:
+            print("printing file %d" % self.S)
+            output_file = open(r"equilibrium_values_S=%d" % self.S,"w")
+            output_file.write("Time to equilibrium t: {:.6G}\n".format(self.t_end))
+            output_file.write("RMS fluctuation level of density E: {:.3G}\n".format(self.E_space[-1]))
+            output_file.write("Flow gradient V: {:.3G}\n".format(self.V_space[-1]))
+            output_file.write("Local density gradient N: {:.3G}".format(self.N_space[-1]))
+            output_file.close()
+        
+
+        
+def main():
+    """
+    do the stuff for S = (2,4,6,8,10,12); store final V of each and plot vs S
+    """
+    #S_space = [2,4,6,8,10,12]
+    S_space = np.linspace(2,12,101)
+    final_V = []
+    
+    alpha = 1
+    nu = 2
+    mu = 2
+    
+    for S in S_space:
+        N0 = np.sqrt(nu*S) + 0.01
+        E0 = np.sqrt(S/nu) + 0.01
+        V0 = 0.01
+        pt = PlasmaTransition(alpha, nu, mu, S, N0, E0, V0)
+        pt.go()
+        final_V.append(pt.V_space[-1])
+    plt.plot(S_space, final_V, '-k')
+    plt.title("V vs S")
+    plt.xlabel("S")
+    plt.xlabel("V")
+    plt.show()
+    
+if __name__ == "__main__": main()
+                
+                
