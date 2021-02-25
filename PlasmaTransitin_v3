@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 calculate and plot local density gradient N, rms fluctuation level E,
 and flow gradient V for a confined, high-temperature plasma.
-Adam Viray
-PHSX 333
 21 February 2021 
 """
 
@@ -86,6 +86,7 @@ class PlasmaTransition():
         to shortly after equilibrium is reached.
         output t, E, V, and N to a file.
         """
+        print("running...")
         for u in self.u_space:
             self.t_space.append(u/(1-u))
             self.N_space.append(self.r[0])
@@ -94,11 +95,12 @@ class PlasmaTransition():
             self.r = np.add(self.r,self.rk4(self.f,self.r,u,self.du))
             if not self.t_end and self.all_equilibrium(int(self.n/20000), 0.000000001):
                 self.t_end = u/(1-u)
+        print("run done")
             
         if not self.t_end:
             self.t_end = 30
         
-        if self.S >= 8 and self.S%1 == 0:
+        if self.S%1 == 0:
             l1,l2,l3 = plt.plot(self.t_space, self.N_space, '-k', self.t_space, self.E_space, '-r', self.t_space, self.V_space, '-b')
             plt.legend((l1,l2,l3),('N','E','V'))
             plt.title('S = %f' % self.S)
@@ -109,10 +111,10 @@ class PlasmaTransition():
         if self.S%2 == 0:
             print("printing file %d" % self.S)
             output_file = open(r"equilibrium_values_S=%d" % self.S,"w")
-            output_file.write("Time to equilibrium t: {:.6G}\n".format(self.t_end))
-            output_file.write("RMS fluctuation level of density E: {:.3G}\n".format(self.E_space[-1]))
-            output_file.write("Flow gradient V: {:.3G}\n".format(self.V_space[-1]))
-            output_file.write("Local density gradient N: {:.3G}".format(self.N_space[-1]))
+            output_file.write("Time to equilibrium t: {:.6G} s\n".format(self.t_end))
+            output_file.write("RMS fluctuation level of density E: {:.3G} \n".format(self.E_space[-1]))
+            output_file.write("Flow gradient V: {:.3G} \n".format(self.V_space[-1]))
+            output_file.write("Local density gradient N: {:.3G} ".format(self.N_space[-1]))
             output_file.close()
         
 
@@ -121,8 +123,8 @@ def main():
     """
     do the stuff for S = (2,4,6,8,10,12); store final V of each and plot vs S
     """
-    #S_space = [2,4,6,8,10,12]
-    S_space = np.linspace(2,12,101)
+    S_space = [2,4,6,8,10,12]
+    #S_space = np.linspace(2,12,101)
     final_V = []
     
     alpha = 1
